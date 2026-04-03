@@ -153,7 +153,7 @@ git push -u origin main
 ### 2. Configure the service
 
 - Environment: `Python 3`
-- Root Directory: leave blank if the repo contains only this project, or set it to `chatbot_project`
+- Root Directory: leave blank
 - Build Command:
 
 ```bash
@@ -171,6 +171,13 @@ uvicorn backend.main:app --host 0.0.0.0 --port 10000
 - Click `Create Web Service`
 - Wait for the build and deploy logs to finish
 - Open the generated Render URL to use the chatbot
+
+### Render Troubleshooting
+
+- If Render says it cannot find `chatbot_project/backend/requirements.txt`, your service is using the wrong path.
+- This repository already has `backend/` at the repo root, so the correct build file is `backend/requirements.txt`.
+- The correct start target is `backend.main:app`.
+- You can also deploy using the included `render.yaml` file so Render auto-fills the correct commands.
 
 ## Screenshots
 
