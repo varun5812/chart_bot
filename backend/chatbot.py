@@ -1,12 +1,34 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+import os
+from dataclasses import dataclass, field
 from typing import List
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+
+GOOGLE_SEARCH_URL = "https://www.googleapis.com/customsearch/v1"
+WEB_SEARCH_TRIGGER_WORDS = {
+    "latest",
+    "recent",
+    "current",
+    "today",
+    "news",
+    "trend",
+    "trends",
+    "salary",
+    "salaries",
+    "market",
+    "hiring",
+    "jobs",
+}
 
 
 @dataclass(frozen=True)
@@ -16,10 +38,71 @@ class KnowledgeEntry:
     training_phrases: List[str]
 
 
-class CareerChatbot:
-    """Simple NLP chatbot powered by TF-IDF sentence matching."""
+@dataclass(frozen=True)
+class SearchResult:
+    title: str
+    link: str
+    snippet: str
 
-    def __init__(self) -> None:
+
+@dataclass(frozen=True)
+class ChatbotReply:
+    response: str
+    sources: List[SearchResult] = field(default_factory=list)
+    mode: str = "knowledge-base"
+
+
+class GoogleSearchClient:
+    """Thin wrapper around the official Google Custom Search JSON API."""
+
+    def __init__(self, api_key: str | None = None, search_engine_id: str | None = None) -> None:
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        self.search_engine_id = search_engine_id or os.getenv("GOOGLE_CSE_ID")
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.api_key and self.search_engine_id)
+
+    def search(self, query: str, num_results: int = 3) -> List[SearchResult]:
+        if not self.enabled:
+            return []
+
+        params = urlencode(
+            {
+                "key": self.api_key,
+                "cx": self.search_engine_id,
+                "q": query,
+                "num": max(1, min(num_results, 10)),
+            }
+        )
+        request_url = f"{GOOGLE_SEARCH_URL}?{params}"
+
+        try:
+            with urlopen(request_url, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+            return []
+
+        items = payload.get("items", [])
+        return [
+            SearchResult(
+                title=item.get("title", "Untitled result"),
+                link=item.get("link", ""),
+                snippet=item.get("snippet", "").replace("\n", " ").strip(),
+            )
+            for item in items
+            if item.get("link")
+        ]
+
+
+class CareerChatbot:
+    """Simple NLP chatbot with an optional Google search fallback."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        search_engine_id: str | None = None,
+    ) -> None:
         self.knowledge_base = self._build_knowledge_base()
         self.vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
         self.training_phrases = [
@@ -39,30 +122,67 @@ class CareerChatbot:
         self.intent_catalog = pd.DataFrame(
             [{"intent": entry.intent, "answer": entry.answer} for entry in self.knowledge_base]
         )
+        self.google_search = GoogleSearchClient(api_key, search_engine_id)
 
-    def get_response(self, message: str) -> str:
+    def get_response(self, message: str) -> ChatbotReply:
         cleaned_message = message.strip()
         if not cleaned_message:
             raise ValueError("Message cannot be empty.")
 
-        query_vector = self.vectorizer.transform([cleaned_message])
+        matched_reply, best_score = self._match_knowledge_base(cleaned_message)
+
+        if self._should_use_web_search(cleaned_message, best_score):
+            web_results = self.google_search.search(cleaned_message)
+            if web_results:
+                return self._build_web_reply(cleaned_message, web_results)
+
+        if matched_reply is not None:
+            return ChatbotReply(response=matched_reply, mode="knowledge-base")
+
+        return ChatbotReply(response=self._fallback_response(), mode="fallback")
+
+    def _match_knowledge_base(self, message: str) -> tuple[str | None, float]:
+        query_vector = self.vectorizer.transform([message])
         similarity_scores = cosine_similarity(query_vector, self.training_matrix).flatten()
 
         best_index = int(np.argmax(similarity_scores))
         best_score = float(similarity_scores[best_index])
 
         if best_score < 0.18:
-            return self._fallback_response()
+            return None, best_score
 
         matched_intent = self.intent_lookup[best_index]
-        return self.intent_to_answer[matched_intent]
+        return self.intent_to_answer[matched_intent], best_score
+
+    def _should_use_web_search(self, message: str, similarity_score: float) -> bool:
+        message_tokens = {token.lower().strip(".,?!") for token in message.split()}
+        asks_for_fresh_info = any(token in WEB_SEARCH_TRIGGER_WORDS for token in message_tokens)
+        return self.google_search.enabled and (similarity_score < 0.28 or asks_for_fresh_info)
+
+    @staticmethod
+    def _build_web_reply(query: str, results: List[SearchResult]) -> ChatbotReply:
+        top_results = results[:3]
+        snippets = [result.snippet for result in top_results if result.snippet]
+        summary = " ".join(snippets)
+        if not summary:
+            summary = (
+                f"I searched the web for '{query}' and found relevant sources. "
+                "Open the links below for the latest details."
+            )
+        else:
+            summary = (
+                f"Here is a web-assisted answer for '{query}': {summary} "
+                "Use the source links below for the latest details."
+            )
+
+        return ChatbotReply(response=summary, sources=top_results, mode="web-search")
 
     @staticmethod
     def _fallback_response() -> str:
         return (
-            "I can help with data science careers, skill building, interview prep, and "
-            "learning roadmaps. Try asking about Python, SQL, machine learning, projects, "
-            "resume tips, or how to become a data scientist."
+            "I can help with data science careers, skill building, interview prep, learning "
+            "roadmaps, and web-assisted answers when Google search is configured. Try asking "
+            "about Python, SQL, machine learning, salaries, hiring trends, or how to become a data scientist."
         )
 
     @staticmethod

@@ -10,6 +10,7 @@ The project uses a FastAPI backend and a simple frontend built with HTML, CSS, a
 
 - FastAPI backend with a `POST /chat` API endpoint
 - NLP chatbot logic using TF-IDF and cosine similarity
+- Optional Google-powered search fallback for broader answers
 - Clean modular backend structure
 - Frontend chat interface with modern styling
 - Skill recommendations for Python, SQL, machine learning, statistics, and tools
@@ -26,6 +27,7 @@ The project uses a FastAPI backend and a simple frontend built with HTML, CSS, a
 - scikit-learn
 - NumPy
 - pandas
+- Google Custom Search JSON API (optional)
 - HTML
 - CSS
 - JavaScript
@@ -113,9 +115,29 @@ POST /chat
 
 ```json
 {
-  "response": "Core skills for data science are Python, SQL, statistics, machine learning..."
+  "response": "Core skills for data science are Python, SQL, statistics, machine learning...",
+  "mode": "knowledge-base",
+  "sources": []
 }
 ```
+
+## Enable Google Search For Better Answers
+
+This project can optionally use Google's official Custom Search JSON API for broader and fresher answers.
+
+Required environment variables:
+
+```text
+GOOGLE_API_KEY=your_google_api_key
+GOOGLE_CSE_ID=your_programmable_search_engine_id
+```
+
+Google docs:
+
+- [Custom Search JSON API overview](https://developers.google.com/custom-search/v1/introduction)
+- [Custom Search JSON API reference](https://developers.google.com/custom-search/v1/using_rest)
+
+When these variables are set, the chatbot can search the web for unknown or current questions and show source links in the chat UI.
 
 ## GitHub Setup
 
@@ -154,6 +176,12 @@ git push -u origin main
 
 - Environment: `Python 3`
 - Root Directory: leave blank
+- Environment Variables:
+
+```text
+GOOGLE_API_KEY=your_google_api_key
+GOOGLE_CSE_ID=your_programmable_search_engine_id
+```
 - Build Command:
 
 ```bash

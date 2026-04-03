@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -28,7 +29,10 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
-chatbot = CareerChatbot()
+chatbot = CareerChatbot(
+    api_key=os.getenv("GOOGLE_API_KEY"),
+    search_engine_id=os.getenv("GOOGLE_CSE_ID"),
+)
 
 
 class ChatRequest(BaseModel):
@@ -37,6 +41,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+    mode: str
+    sources: list[dict[str, str]]
 
 
 @app.get("/")
@@ -48,7 +54,18 @@ async def serve_frontend() -> FileResponse:
 async def chat(request: ChatRequest) -> ChatResponse:
     try:
         reply = chatbot.get_response(request.message)
-        return ChatResponse(response=reply)
+        return ChatResponse(
+            response=reply.response,
+            mode=reply.mode,
+            sources=[
+                {
+                    "title": source.title,
+                    "link": source.link,
+                    "snippet": source.snippet,
+                }
+                for source in reply.sources
+            ],
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

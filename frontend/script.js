@@ -3,13 +3,30 @@ const chatBox = document.getElementById("chat-box");
 const userInput = document.getElementById("user-input");
 const sendButton = document.getElementById("send-button");
 
-function appendMessage(sender, text) {
+function appendMessage(sender, text, sources = []) {
     const message = document.createElement("div");
     message.className = `message ${sender}`;
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
     bubble.textContent = text;
+
+    if (sender === "bot" && sources.length > 0) {
+        const sourcesBox = document.createElement("div");
+        sourcesBox.className = "sources";
+
+        sources.forEach((source) => {
+            const link = document.createElement("a");
+            link.className = "source-link";
+            link.href = source.link;
+            link.target = "_blank";
+            link.rel = "noreferrer";
+            link.textContent = source.title;
+            sourcesBox.appendChild(link);
+        });
+
+        bubble.appendChild(sourcesBox);
+    }
 
     message.appendChild(bubble);
     chatBox.appendChild(message);
@@ -56,7 +73,7 @@ chatForm.addEventListener("submit", async (event) => {
 
     try {
         const data = await sendMessage(message);
-        appendMessage("bot", data.response);
+        appendMessage("bot", data.response, data.sources || []);
     } catch (error) {
         appendMessage("bot", error.message);
     } finally {

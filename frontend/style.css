@@ -116,6 +116,31 @@ body {
     margin-top: 16px;
 }
 
+.helper-text {
+    margin: 6px 2px 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.sources {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(31, 41, 51, 0.08);
+}
+
+.source-link {
+    display: block;
+    margin-top: 8px;
+    color: var(--accent-deep);
+    text-decoration: none;
+    font-size: 0.92rem;
+    word-break: break-word;
+}
+
+.source-link:hover {
+    text-decoration: underline;
+}
+
 .chat-form input {
     width: 100%;
     padding: 14px 16px;
