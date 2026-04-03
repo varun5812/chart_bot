@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Science Career Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page-shell">
+        <section class="hero-card">
+            <p class="eyebrow">AI Career Guide</p>
+            <h1>Data Science Career Assistant Chatbot</h1>
+            <p class="hero-copy">
+                Ask about data science roles, learning roadmaps, interview preparation,
+                portfolio projects, and career-building skills.
+            </p>
+        </section>
+
+        <section class="chat-card">
+            <div id="chat-box" class="chat-box">
+                <div class="message bot">
+                    <div class="bubble">
+                        Hello! I can help you explore data science careers, skills, project ideas,
+                        and interview strategies. What would you like to know?
+                    </div>
+                </div>
+            </div>
+
+            <form id="chat-form" class="chat-form">
+                <input
+                    type="text"
+                    id="user-input"
+                    placeholder="Ask about data science careers..."
+                    autocomplete="off"
+                    required
+                >
+                <button type="submit" id="send-button">Send</button>
+            </form>
+        </section>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
